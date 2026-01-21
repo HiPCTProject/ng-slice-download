@@ -56,6 +56,10 @@ def main():
         for tile_idx in tqdm(tile_idxs, desc="Tiles"):
             x, y = plane.tile_coords(tile_idx)
             world_coords = plane.plane_coords_to_world(x, y)
+            if not np.any(bounds.contains(world_coords)):
+                print("All out of bounds")
+                continue
+
             # Get bounding box of world coords
             slc = tuple(
                 slice(max(0, math.floor(min(c)) - 2), min(s, math.ceil(max(c)) + 2))

@@ -77,8 +77,10 @@ class Plane:
                     all_outside = True
 
             # If it's all outside, we have finished spiralling
+            # Add one because if corners are all outside, there's still the possibility that one of the
+            # edges of the square clips the edge of the volume
             if all_outside:
-                return n_spiral
+                return n_spiral + 1
             n_spiral = n_spiral + 1
 
 
