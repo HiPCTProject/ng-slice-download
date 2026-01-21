@@ -60,7 +60,7 @@ class Plane:
             ((tile_idx[0] + 1) * self.chunks[0], (tile_idx[1] + 1) * self.chunks[1]),
         )
 
-    def get_nspiral(self, cuboid: Cuboid):
+    def get_nspiral(self, cuboid: Cuboid) -> int:
         """
         Get the maximum number n_spiral needed to fully tile a given cuboid.
         """
