@@ -1,6 +1,6 @@
 import numpy as np
 
-from plane import Plane, spiral_coords
+from ng_slice_download.plane import Plane, spiral_coords
 
 
 def test_plane():
