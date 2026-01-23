@@ -3,31 +3,23 @@ name = "ng-slice-download"
 version = "0.1.0"
 description = "Download slices from a neuroglancer view"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
     "click>=8.3.1",
-    "hoa-tools@git+https://github.com/HumanOrganAtlas/hoa-tools.git@1.1.1",
     "inquirer>=3.4.1",
-    "matplotlib>=3.10.8",
     "neuroglancer>=2.41.2",
     "numpy>=2.4.1",
-    "ruff>=0.14.13",
     "scipy>=1.17.0",
     "tensorstore>=0.1.80",
     "tifffile>=2026.1.14",
     "tqdm>=4.67.1",
-    "zarr>=3.1.5",
 ]
 
 [dependency-groups]
 dev = [
-    "line-profiler>=5.0.0",
-    "mypy>=1.19.1",
     "prek>=0.3.0",
-    "pyinstrument>=5.1.2",
     "pytest>=9.0.2",
     "ruff>=0.14.13",
-    "scipy-stubs>=1.17.0.1",
 ]
 
 [build-system]
