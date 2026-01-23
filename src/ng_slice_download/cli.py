@@ -19,7 +19,13 @@ from ng_slice_download.utils import (
 
 @click.command()
 @click.argument("neuroglancer_url", type=str, required=True)
-@click.option("--output_dir", type=Path, required=False, default=Path.cwd())
+@click.option(
+    "--output_dir",
+    type=Path,
+    required=False,
+    default=Path.cwd(),
+    help="Directory to download image files to.",
+)
 def main(neuroglancer_url: str, output_dir: Path = Path.cwd()):
     print("Welcome to ng-slice-downloader!")
 
