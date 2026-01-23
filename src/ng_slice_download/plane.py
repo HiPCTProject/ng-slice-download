@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from cuboid import Cuboid
+from ng_slice_download.cuboid import Cuboid
 
 
 @dataclass(kw_only=True)
@@ -60,27 +60,29 @@ class Plane:
             ((tile_idx[0] + 1) * self.chunks[0], (tile_idx[1] + 1) * self.chunks[1]),
         )
 
-    def get_nspiral(self, cuboid: Cuboid) -> int:
+    def get_nspiral(self, cuboid: Cuboid) -> tuple[int, list[tuple[int, int]]]:
         """
         Get the maximum number n_spiral needed to fully tile a given cuboid.
         """
         n_spiral = 0
+        tiles_in_bounds = []
         while True:
             # Check if this spiral of tiles is all outside the data volume or not
-            all_outside = False
+            any_inside = False
             # Loop through every tile in a spiral.
             # For each tile, check if the corners are outside the data bounds
             for tile_idx in spiral_coords(n_spiral):
                 corners = self.tile_corners(tile_idx)
                 corners_world = [self.plane_coords_to_world(*c) for c in corners]
-                if not all(cuboid.contains(c) for c in corners_world):
-                    all_outside = True
+                if any(cuboid.contains(c) for c in corners_world):
+                    tiles_in_bounds.append(tile_idx)
+                    any_inside = True
 
             # If it's all outside, we have finished spiralling
             # Add one because if corners are all outside, there's still the possibility that one of the
             # edges of the square clips the edge of the volume
-            if all_outside:
-                return n_spiral + 1
+            if not any_inside:
+                return n_spiral + 1, tiles_in_bounds
             n_spiral = n_spiral + 1
 
 

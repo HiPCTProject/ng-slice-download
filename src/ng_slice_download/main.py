@@ -1,10 +1,8 @@
 import math
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import scipy.interpolate
-import tensorstore as ts
 from hoa_tools.dataset import change_metadata_directory, get_dataset
 from tqdm import tqdm
 
@@ -24,17 +22,22 @@ def main():
     print(dataset.name)
     print(dataset.data.shape)
 
-    input_image = open_tensorstore_array(dataset.data.gcs_url)
-    bounds = Cuboid(shape=dataset.data.shape)
+    downsample_level = 1
+    bin_factor = 2**downsample_level
+    input_image = open_tensorstore_array(
+        dataset.data.gcs_url, downsample_level=downsample_level
+    )
+    print(input_image.shape)
+    bounds = Cuboid(shape=input_image.shape)
 
     # Define the plane of the output image
     plane = Plane(
-        point=(4709, 3963, 9093),
+        point=(5420 / bin_factor, 4602 / bin_factor, 19818 / bin_factor),
         quarternion=(
-            0.7486985921859741,
-            -0.6143076419830322,
-            -0.09311465173959732,
-            0.2310977578163147,
+            0.6761807799339294,
+            0.16871704161167145,
+            0.14734917879104614,
+            0.7018563747406006,
         ),
     )
     max_nspiral = plane.get_nspiral(bounds)
@@ -57,7 +60,6 @@ def main():
             x, y = plane.tile_coords(tile_idx)
             world_coords = plane.plane_coords_to_world(x, y)
             if not np.any(bounds.contains(world_coords)):
-                print("All out of bounds")
                 continue
 
             # Get bounding box of world coords
@@ -66,18 +68,9 @@ def main():
                 for s, c in zip(input_image.shape, world_coords, strict=True)
             )
             # Get NumPy array within bounding box from Zarr array
-            arr = input_image[slc].read().result()
+            arr = input_image[slc].read()
             arr_coords = tuple(np.arange(s.start, s.stop) for s in slc)
-
-            # Interpolate data on plane coordinates
-            tile_image = scipy.interpolate.interpn(
-                points=arr_coords,
-                values=arr,
-                xi=np.vstack(world_coords).T,
-                bounds_error=False,
-                fill_value=np.nan,
-            ).reshape(plane.chunks)
-
+            xi = np.vstack(world_coords).T
             output_slc = (
                 slice(
                     plane.chunks[0] * tile_idx[0] + offset_x,
@@ -88,6 +81,16 @@ def main():
                     plane.chunks[1] * (tile_idx[1] + 1) + offset_y,
                 ),
             )
+
+            # Interpolate data on plane coordinates
+            tile_image = scipy.interpolate.interpn(
+                points=arr_coords,
+                values=arr.result(),
+                xi=xi,
+                bounds_error=False,
+                fill_value=np.nan,
+            ).reshape(plane.chunks)
+
             output_image[output_slc].write(tile_image.astype(np.float32)).result()
 
 

@@ -1,12 +1,15 @@
 [project]
-name = "plane-interpol"
+name = "ng-slice-download"
 version = "0.1.0"
-description = "Add your description here"
+description = "Download slices from a neuroglancer view"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "click>=8.3.1",
     "hoa-tools@git+https://github.com/HumanOrganAtlas/hoa-tools.git@1.1.1",
+    "inquirer>=3.4.1",
     "matplotlib>=3.10.8",
+    "neuroglancer>=2.41.2",
     "numpy>=2.4.1",
     "ruff>=0.14.13",
     "scipy>=1.17.0",
@@ -18,9 +21,17 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "line-profiler>=5.0.0",
     "mypy>=1.19.1",
     "pyinstrument>=5.1.2",
     "pytest>=9.0.2",
     "ruff>=0.14.13",
     "scipy-stubs>=1.17.0.1",
 ]
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.10.0"]
+build-backend = "uv_build"
+
+[project.scripts]
+ng-slice-download = "ng_slice_download.cli:main"
