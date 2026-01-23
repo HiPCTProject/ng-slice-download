@@ -6,9 +6,12 @@ import scipy.interpolate
 from hoa_tools.dataset import change_metadata_directory, get_dataset
 from tqdm import tqdm
 
-from cuboid import Cuboid
-from plane import Plane, spiral_coords
-from utils import create_local_tensorstore_array, open_tensorstore_array
+from ng_slice_download.cuboid import Cuboid
+from ng_slice_download.plane import Plane, spiral_coords
+from ng_slice_download.utils import (
+    create_local_tensorstore_array,
+    open_tensorstore_array,
+)
 
 # Get this from the first column HiP-CT Google sheet
 # https://docs.google.com/spreadsheets/d/1eMJgBPcTjCvnZpJ3AfpGvWf5yqNaQHC5FuyVQuSzl5M/edit?gid=0#gid=0
