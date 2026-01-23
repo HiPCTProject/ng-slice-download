@@ -10,7 +10,7 @@ A simple command line utility to download the current neuroglancer view to a loc
 4. Run:
 
 ```shell
-ng-slice-download '[full neuroglancer link]'
+uvx ng-slice-download '[full neuroglancer link]'
 ```
 replacing `[full neuroglancer link] ` with your neuroglancer link.
 It's important to surround the neuroglancer link in quotes because it will probably contain special characters.
