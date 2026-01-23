@@ -23,6 +23,7 @@ dependencies = [
 dev = [
     "line-profiler>=5.0.0",
     "mypy>=1.19.1",
+    "prek>=0.3.0",
     "pyinstrument>=5.1.2",
     "pytest>=9.0.2",
     "ruff>=0.14.13",
