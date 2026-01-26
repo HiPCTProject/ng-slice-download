@@ -32,7 +32,8 @@ Options:
 
 ### 0.2
 
-- Renamed the --output_dir flag to --output-dir
+- Added support for N5 images.
+- Renamed the --output_dir flag to --output-dir.
 - Add --skip-lowres-check option to skip the initial low resolution check that the orientation is correct.
 - Add a more helpful error message if selected layer is not an image layer.
 - Allow layers with a transform, but without a transformation matrix.
