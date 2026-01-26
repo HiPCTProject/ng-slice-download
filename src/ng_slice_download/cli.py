@@ -56,7 +56,7 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
             downsample_level=4,
             position=position,
             rotation_quat=rotation_quat,
-            output_path=output_dir / "ng_slice_small",
+            output_path=output_dir / f"ng_slice_check_{selected_layer.name}",
         )
         print()
         print(
@@ -96,7 +96,7 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
         downsample_level=downsample_level,
         position=position,
         rotation_quat=rotation_quat,
-        output_path=output_dir / "ng_slice",
+        output_path=output_dir / f"ng_slice_{selected_layer.name}",
     )
 
 

@@ -32,6 +32,7 @@ Options:
 
 ### 0.2
 
+- Saved images use the Neuroglancer layer name in the filename
 - Added support for N5 images.
 - Renamed the --output_dir flag to --output-dir.
 - Add --skip-lowres-check option to skip the initial low resolution check that the orientation is correct.
