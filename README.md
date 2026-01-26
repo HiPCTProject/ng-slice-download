@@ -17,9 +17,24 @@ It's important to surround the neuroglancer link in quotes because it will proba
 
 ### Command documentation
 ```shell
+% ng-slice-download --help
 Usage: ng-slice-download [OPTIONS] NEUROGLANCER_URL
 
 Options:
-  --output_dir PATH  Directory to download image files to.
-  --help             Show this message and exit.
+  --output-dir PATH    Directory to download image files to.
+  --skip-lowres-check  Skip the low resolution check.
+  --help               Show this message and exit.
 ```
+
+## Changelog
+
+### 0.2
+
+- Renamed the --output_dir flag to --output-dir
+- Add --skip-lowres-check option to skip the initial low resolution check that the orientation is correct.
+- Add a more helpful error message if selected layer is not an image layer.
+- Allow layers with a transform, but without a transformation matrix.
+
+### 0.1.1
+
+First release

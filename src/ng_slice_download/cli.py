@@ -18,15 +18,18 @@ from ng_slice_download.utils import (
 
 
 @click.command()
-@click.argument("neuroglancer_url", type=str, required=True)
+@click.argument("neuroglancer-url", type=str, required=True)
 @click.option(
-    "--output_dir",
+    "--output-dir",
     type=Path,
     required=False,
     default=Path.cwd(),
     help="Directory to download image files to.",
 )
-def main(neuroglancer_url: str, output_dir: Path = Path.cwd()):
+@click.option(
+    "--skip-lowres-check", is_flag=True, help="Skip the low resolution check."
+)
+def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
     print("Welcome to ng-slice-downloader!")
 
     ng_state = neuroglancer.url_state.parse_url(neuroglancer_url)
@@ -45,28 +48,29 @@ def main(neuroglancer_url: str, output_dir: Path = Path.cwd()):
     position = ng_state.position
     rotation_quat = ng_state.crossSectionOrientation
 
-    print()
-    print("Creating small image to check view is as expected")
-    save_image(
-        gcs_url=image_url,
-        downsample_level=4,
-        position=position,
-        rotation_quat=rotation_quat,
-        output_path=output_dir / "ng_slice_small",
-    )
-    print()
-    print(
-        "Please check that the small TIFF file is in the expected orientation before continuing."
-    )
-    questions = [
-        inquirer.Confirm(
-            "continue", message="Continue with large image?", default=True
-        ),
-    ]
+    if not skip_lowres_check:
+        print()
+        print("Creating small image to check view is as expected")
+        save_image(
+            gcs_url=image_url,
+            downsample_level=4,
+            position=position,
+            rotation_quat=rotation_quat,
+            output_path=output_dir / "ng_slice_small",
+        )
+        print()
+        print(
+            "Please check that the small TIFF file is in the expected orientation before continuing."
+        )
+        questions = [
+            inquirer.Confirm(
+                "continue", message="Continue with large image?", default=True
+            ),
+        ]
 
-    answers = inquirer.prompt(questions)
-    if not answers["continue"]:
-        exit()
+        answers = inquirer.prompt(questions)
+        if not answers["continue"]:
+            exit()
 
     shapes = [
         get_output_shape(
