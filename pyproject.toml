@@ -1,6 +1,6 @@
 [project]
 name = "ng-slice-download"
-version = "0.1.1"
+version = "0.2"
 description = "Download slices from a neuroglancer view"
 readme = "README.md"
 requires-python = ">=3.12"
