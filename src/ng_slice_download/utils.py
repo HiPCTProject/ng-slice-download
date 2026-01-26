@@ -1,4 +1,3 @@
-import numpy as np
 import tensorstore as ts
 
 

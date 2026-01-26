@@ -33,6 +33,7 @@ def main(neuroglancer_url: str, output_dir: Path = Path.cwd()):
     selected_layer = {layer.name: layer for layer in ng_state.layers}.get(
         ng_state.selectedLayer.layer
     )
+    check_image_layer(selected_layer)
 
     print(f"Selected layer: {selected_layer.name}")
     check_no_transform(selected_layer)
@@ -95,11 +96,23 @@ def main(neuroglancer_url: str, output_dir: Path = Path.cwd()):
     )
 
 
-def check_no_transform(layer) -> None:
-    if layer.source[0].transform is not None:
+def check_image_layer(layer: neuroglancer.ManagedLayer) -> None:
+    if not layer.type == "image":
         print()
         print(
-            "Selected layer has a transform, "
+            f"Selected layer '{layer.name}' (type: {layer.type}) is not an image layer 😢"
+        )
+        exit()
+
+
+def check_no_transform(layer) -> None:
+    if (
+        layer.source[0].transform is not None
+        and layer.source[0].transform.matrix is not None
+    ):
+        print()
+        print(
+            "Selected layer has a transform matrix, "
             "but ng-slice-downloader does not currently support layers with transforms 😢"
         )
         exit()
