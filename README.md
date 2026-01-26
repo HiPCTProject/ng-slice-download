@@ -32,6 +32,7 @@ Options:
 
 ### 0.2
 
+- Ask before overwriting output TIFF files (.zarr files are still overwritten without asking)
 - Saved images use the Neuroglancer layer name in the filename
 - Added support for N5 images.
 - Renamed the --output_dir flag to --output-dir.

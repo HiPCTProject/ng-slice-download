@@ -14,6 +14,7 @@ from ng_slice_download.plane import Plane
 from ng_slice_download.utils import (
     create_local_tensorstore_array,
     open_tensorstore_array,
+    yes_no_gate,
 )
 
 
@@ -62,15 +63,7 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
         print(
             "Please check that the small TIFF file is in the expected orientation before continuing."
         )
-        questions = [
-            inquirer.Confirm(
-                "continue", message="Continue with large image?", default=True
-            ),
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers["continue"]:
-            exit()
+        yes_no_gate("Continue with large image?", default=True)
 
     shapes = [
         get_output_shape(
@@ -177,6 +170,9 @@ def save_image(
 
     output_image_path = output_path.with_suffix(".zarr")
     TIFF_path = output_path.with_suffix(".tiff")
+
+    if TIFF_path.exists():
+        yes_no_gate(f"{TIFF_path} already exists. Overwrite?", default=False)
 
     print(f"Creating output image, shape={output_image_shape}")
     print(f"Writing results to Zarr array at {output_image_path}")

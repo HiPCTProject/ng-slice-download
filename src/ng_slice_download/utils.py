@@ -1,3 +1,4 @@
+import inquirer
 import tensorstore as ts
 
 
@@ -55,3 +56,12 @@ def create_local_tensorstore_array(
             },
         }
     ).result()
+
+
+def yes_no_gate(message: str, *, default: bool) -> None:
+    questions = [
+        inquirer.Confirm("continue", message=message, default=default),
+    ]
+    answers = inquirer.prompt(questions)
+    if answers is None or not answers["continue"]:
+        exit()
