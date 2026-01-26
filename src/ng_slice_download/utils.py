@@ -6,6 +6,10 @@ def open_tensorstore_array(
 ) -> ts.TensorStore:
     driver, _, path = gcs_url.split("://")
     bucket, path = path.split("/", maxsplit=1)
+    if driver == "n5":
+        downsample_level = f"s{downsample_level}"
+    else:
+        downsample_level = f"{downsample_level}"
     return ts.open(
         {
             "driver": driver,

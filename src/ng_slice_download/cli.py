@@ -42,7 +42,7 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
     check_no_transform(selected_layer)
 
     image_url = str(selected_layer.source[0].url)
-    check_ome_zarr(image_url)
+    check_ome_zarr_or_n5(image_url)
     print(f"Layer URL: {image_url}")
 
     position = ng_state.position
@@ -122,10 +122,10 @@ def check_no_transform(layer) -> None:
         exit()
 
 
-def check_ome_zarr(gcs_url: str) -> None:
-    if not gcs_url.startswith("zarr://"):
+def check_ome_zarr_or_n5(gcs_url: str) -> None:
+    if not (gcs_url.startswith("zarr://") or gcs_url.startswith("n5://")):
         print()
-        print("ng-slice-downloader only supports OME-Zarr images 😢")
+        print("ng-slice-downloader only supports OME-Zarr or N5 images 😢")
         exit()
 
 
@@ -187,7 +187,9 @@ def save_image(
         shape=output_image_shape,
         tile_shape=plane.chunks,
         dtype=str(input_image.dtype.numpy_dtype),
-        fill_value=input_image.fill_value.tolist(),
+        fill_value=input_image.fill_value.tolist()
+        if input_image.fill_value is not None
+        else 0,
     )
 
     for i, tile_idx in enumerate(tqdm(tiles_in_bounds, desc="Downloading tiles")):
@@ -219,7 +221,9 @@ def save_image(
             values=arr.result(),
             xi=xi,
             bounds_error=False,
-            fill_value=input_image.fill_value.tolist(),
+            fill_value=input_image.fill_value.tolist()
+            if input_image.fill_value is not None
+            else 0,
         ).reshape(plane.chunks)
 
         output_image[output_slc].write(
