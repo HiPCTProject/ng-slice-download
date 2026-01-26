@@ -5,7 +5,7 @@ A simple command line utility to download the current neuroglancer view to a loc
 ## Usage
 
 1. [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
-2. Open an OME-Zarr image in neuroglancer, and navigate to the 2D view that you want to download. **Important**: the view to be downloaded is in the upper left panel.
+2. Open an OME-Zarr or N5 image in neuroglancer, and navigate to the 2D view that you want to download. **Important**: the view to be downloaded is in the upper left panel.
 3. Copy the full neuroglancer link from the browser
 4. Run:
 
