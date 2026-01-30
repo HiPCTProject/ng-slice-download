@@ -1,4 +1,5 @@
 import inquirer
+import numpy as np
 import tensorstore as ts
 
 
@@ -65,3 +66,30 @@ def yes_no_gate(message: str, *, default: bool) -> None:
     answers = inquirer.prompt(questions)
     if answers is None or not answers["continue"]:
         exit()
+
+
+def crop_to_fill_value(arr: np.ndarray, fill_value: float) -> np.ndarray:
+    """
+    Crop a 2D array to only the central area inside the fill value.
+    """
+    for i in range(arr.shape[0]):
+        if not np.all(arr[i, :] == fill_value):
+            # Found at least one data value
+            xmin = i
+            break
+
+    for i in range(arr.shape[0], 0, -1):
+        if not np.all(arr[i - 1, :] == fill_value):
+            xmax = i
+
+    for i in range(arr.shape[1]):
+        if not np.all(arr[:, i] == fill_value):
+            # Found at least one data value
+            ymin = i
+            break
+
+    for i in range(arr.shape[1], 0, -1):
+        if not np.all(arr[:, i - 1] == fill_value):
+            ymax = i
+
+    return arr[xmin:xmax, ymin:ymax]
