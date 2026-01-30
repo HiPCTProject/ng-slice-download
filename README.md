@@ -1,6 +1,6 @@
 # ng-slice-download
 
-A simple command line utility to download the current neuroglancer view to a local TIFF file.
+A simple command line utility to download the current neuroglancer view to a local TIFF file, with minimal compute requirements.
 
 ## Usage
 
