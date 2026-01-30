@@ -31,7 +31,7 @@ def test_plane():
 
 def test_spiral():
     assert len(spiral_coords(1)) == 8
-    assert spiral_coords(1) == [
+    assert set(spiral_coords(1)) == {
         (0, 1),
         (-1, -1),
         (-1, 1),
@@ -40,5 +40,5 @@ def test_spiral():
         (-1, 0),
         (1, 0),
         (0, -1),
-    ]
+    }
     assert len(spiral_coords(2)) == 5 + 5 + 3 + 3

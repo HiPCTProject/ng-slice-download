@@ -13,6 +13,7 @@ from ng_slice_download.cuboid import Cuboid
 from ng_slice_download.plane import Plane
 from ng_slice_download.utils import (
     create_local_tensorstore_array,
+    crop_to_fill_value,
     open_tensorstore_array,
     yes_no_gate,
 )
@@ -178,14 +179,15 @@ def save_image(
     print(f"Writing results to Zarr array at {output_image_path}")
     print(f"TIFF image will be updated every 10 tiles at {TIFF_path}")
 
+    fill_value = (
+        input_image.fill_value.tolist() if input_image.fill_value is not None else 0
+    )
     output_image = create_local_tensorstore_array(
         path=output_image_path,
         shape=output_image_shape,
         tile_shape=plane.chunks,
         dtype=str(input_image.dtype.numpy_dtype),
-        fill_value=input_image.fill_value.tolist()
-        if input_image.fill_value is not None
-        else 0,
+        fill_value=fill_value,
     )
 
     for i, tile_idx in enumerate(tqdm(tiles_in_bounds, desc="Downloading tiles")):
@@ -235,5 +237,6 @@ def save_image(
     print("Image saved to:", output_image_path)
     print("Converting to TIFF...")
     arr = output_image[:].read().result()
+    arr = crop_to_fill_value(arr, fill_value)
     tifffile.imwrite(TIFF_path, arr.T)
     print("TIFF saved to:", TIFF_path)
