@@ -1,4 +1,5 @@
 import math
+import shutil
 from pathlib import Path
 
 import click
@@ -30,7 +31,10 @@ from ng_slice_download.utils import (
 @click.option(
     "--skip-lowres-check", is_flag=True, help="Skip the low resolution check."
 )
-def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
+@click.option("--keep-zarr", is_flag=True, help="Keep the intermediate Zarr array.")
+def main(
+    neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool, keep_zarr: bool
+):
     print("Welcome to ng-slice-downloader!")
 
     ng_state = neuroglancer.url_state.parse_url(neuroglancer_url)
@@ -58,6 +62,7 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
             position=position,
             rotation_quat=rotation_quat,
             output_path=output_dir / f"ng_slice_check_{selected_layer.name}",
+            keep_zarr=False,
         )
         print()
         print(
@@ -90,6 +95,7 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
         position=position,
         rotation_quat=rotation_quat,
         output_path=output_dir / f"ng_slice_{selected_layer.name}",
+        keep_zarr=keep_zarr,
     )
 
 
@@ -151,6 +157,7 @@ def save_image(
     position: list[int],
     rotation_quat: list[float],
     output_path: Path,
+    keep_zarr: bool,
 ):
     input_image = open_tensorstore_array(gcs_url, downsample_level=downsample_level)
     print(f"Original image shape: {input_image.shape}")
@@ -168,18 +175,18 @@ def save_image(
         for c, mi, ma in zip(plane.chunks, min_tile_idx, max_tile_idx, strict=True)
     )
 
-    output_image_path = output_path.with_suffix(".zarr")
+    zarr_path = output_path.with_suffix(".zarr")
     TIFF_path = output_path.with_suffix(".tiff")
 
     if TIFF_path.exists():
         yes_no_gate(f"{TIFF_path} already exists. Overwrite?", default=False)
 
     print(f"Creating output image, shape={output_image_shape}")
-    print(f"Writing results to Zarr array at {output_image_path}")
+    print(f"Writing results to Zarr array at {zarr_path}")
     print(f"TIFF image will be updated every 10 tiles at {TIFF_path}")
 
     output_image = create_local_tensorstore_array(
-        path=output_image_path,
+        path=zarr_path,
         shape=output_image_shape,
         tile_shape=plane.chunks,
         dtype=str(input_image.dtype.numpy_dtype),
@@ -232,8 +239,15 @@ def save_image(
             del arr
 
     print("Finished downloading tiles!")
-    print("Image saved to:", output_image_path)
+    print(f"Image saved to: {zarr_path}")
     print("Converting to TIFF...")
     arr = output_image[:].read().result()
     tifffile.imwrite(TIFF_path, arr.T)
+
+    if not keep_zarr:
+        print(f"Deleting {zarr_path}")
+        shutil.rmtree(zarr_path)
+
+    print()
+    print("Finished! 🎉")
     print("TIFF saved to:", TIFF_path)
