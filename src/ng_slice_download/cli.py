@@ -33,7 +33,10 @@ PREVIEW_LEVEL = 4
 @click.option(
     "--skip-lowres-check", is_flag=True, help="Skip the low resolution check."
 )
-def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
+@click.option(
+    "--overwrite-check", is_flag=True, help="Overwrite existing preview files without prompting."
+)
+def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool, overwrite_check: bool):
     print("Welcome to ng-slice-downloader!")
 
     ng_state = neuroglancer.url_state.parse_url(neuroglancer_url)
@@ -62,6 +65,7 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
             position=position,
             rotation_quat=rotation_quat,
             output_path=output_dir / f"ng_slice_check_{selected_layer.name}",
+            overwrite=overwrite_check,
         )
         preview_tiff = (output_dir / f"ng_slice_check_{selected_layer.name}").with_suffix(".tiff")
         annotate_preview(
@@ -230,6 +234,7 @@ def save_image(
     rotation_quat: list[float],
     output_path: Path,
     max_ring: int | None = None,
+    overwrite: bool = False,
 ) -> tuple[list[tuple[int, int]], list[int], tuple[int, int]]:
     input_image = open_tensorstore_array(gcs_url, downsample_level=downsample_level)
     print(f"Original image shape: {input_image.shape}")
@@ -252,7 +257,7 @@ def save_image(
     output_image_path = output_path.with_suffix(".zarr")
     TIFF_path = output_path.with_suffix(".tiff")
 
-    if TIFF_path.exists():
+    if TIFF_path.exists() and not overwrite:
         yes_no_gate(f"{TIFF_path} already exists. Overwrite?", default=False)
 
     print(f"Creating output image, shape={output_image_shape}")
