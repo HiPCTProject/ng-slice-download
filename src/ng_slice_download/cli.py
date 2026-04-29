@@ -7,6 +7,7 @@ import neuroglancer
 import numpy as np
 import scipy.interpolate
 import tifffile
+from PIL import Image, ImageDraw, ImageFont
 from tqdm import tqdm
 
 from ng_slice_download.cuboid import Cuboid
@@ -16,6 +17,8 @@ from ng_slice_download.utils import (
     open_tensorstore_array,
     yes_no_gate,
 )
+
+PREVIEW_LEVEL = 4
 
 
 @click.command()
@@ -49,21 +52,40 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
     position = ng_state.position
     rotation_quat = ng_state.crossSectionOrientation
 
+    max_ring = None
     if not skip_lowres_check:
         print()
         print("Creating small image to check view is as expected")
-        save_image(
+        tiles_in_bounds, min_tile_idx, chunks = save_image(
             gcs_url=image_url,
-            downsample_level=4,
+            downsample_level=PREVIEW_LEVEL,
             position=position,
             rotation_quat=rotation_quat,
             output_path=output_dir / f"ng_slice_check_{selected_layer.name}",
         )
+        preview_tiff = (output_dir / f"ng_slice_check_{selected_layer.name}").with_suffix(".tiff")
+        annotate_preview(
+            tiff_path=preview_tiff,
+            tiles_in_bounds=tiles_in_bounds,
+            min_tile_idx=min_tile_idx,
+            chunks=chunks,
+        )
         print()
         print(
-            "Please check that the small TIFF file is in the expected orientation before continuing."
+            "Please check the TIFF and annotated PNG. "
+            "Ring numbers show tile distance from the centre (0 = centre tile)."
         )
         yes_no_gate("Continue with large image?", default=True)
+
+        max_preview_ring = max(max(abs(i), abs(j)) for (i, j) in tiles_in_bounds)
+        answers = inquirer.prompt([
+            inquirer.Text(
+                "max_ring",
+                message=f"Maximum ring number to include (0-{max_preview_ring}, blank = all)",
+                validate=lambda _, x: x == "" or (x.isdigit() and 0 <= int(x) <= max_preview_ring),
+            )
+        ])
+        max_ring = int(answers["max_ring"]) if answers["max_ring"].strip() else None
 
     shapes = [
         get_output_shape(
@@ -71,6 +93,7 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
             downsample_level=downsample_level,
             position=position,
             rotation_quat=rotation_quat,
+            max_ring=max_ring,
         )
         for downsample_level in range(4)
     ]
@@ -90,6 +113,7 @@ def main(neuroglancer_url: str, output_dir: Path, skip_lowres_check: bool):
         position=position,
         rotation_quat=rotation_quat,
         output_path=output_dir / f"ng_slice_{selected_layer.name}",
+        max_ring=max_ring,
     )
 
 
@@ -122,19 +146,73 @@ def check_ome_zarr_or_n5(gcs_url: str) -> None:
         exit()
 
 
+def filter_tiles_by_ring(
+    tiles: list[tuple[int, int]],
+    max_ring: int,
+    downsample_level: int,
+) -> list[tuple[int, int]]:
+    """Filter tiles to those within max_ring rings at the preview level.
+
+    Ring N at PREVIEW_LEVEL covers the physical region corresponding to
+    tile indices [-N*scale, (N+1)*scale) at downsample_level, where
+    scale = 2^(PREVIEW_LEVEL - downsample_level).
+    """
+    scale = 2 ** (PREVIEW_LEVEL - downsample_level)
+    lo = -max_ring * scale
+    hi = (max_ring + 1) * scale - 1
+    return [(i, j) for (i, j) in tiles if lo <= i <= hi and lo <= j <= hi]
+
+
+def annotate_preview(
+    tiff_path: Path,
+    tiles_in_bounds: list[tuple[int, int]],
+    min_tile_idx: list[int],
+    chunks: tuple[int, int],
+) -> None:
+    """Save an annotated PNG alongside the preview TIFF with ring numbers on each tile."""
+    arr = tifffile.imread(tiff_path).astype(np.float32)
+    lo, hi = arr.min(), arr.max()
+    arr_u8 = (((arr - lo) / (hi - lo)) * 255).astype(np.uint8) if hi > lo else np.zeros_like(arr, dtype=np.uint8)
+
+    img = Image.fromarray(arr_u8).convert("RGB")
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.load_default(size=min(chunks) // 4)
+
+    for i, j in tiles_in_bounds:
+        ring = max(abs(i), abs(j))
+        x0 = (i - min_tile_idx[0]) * chunks[0]
+        y0 = (j - min_tile_idx[1]) * chunks[1]
+        x1, y1 = x0 + chunks[0] - 1, y0 + chunks[1] - 1
+        cx, cy = x0 + chunks[0] // 2, y0 + chunks[1] // 2
+        draw.rectangle([x0, y0, x1, y1], outline=(255, 0, 0))
+        text = str(ring)
+        bbox = draw.textbbox((cx, cy), text, font=font, anchor="mm")
+        draw.rectangle(bbox, fill=(0, 0, 0))
+        draw.text((cx, cy), text, font=font, fill=(255, 255, 0), anchor="mm")
+
+    out = tiff_path.with_name(tiff_path.stem + "_annotated.png")
+    img.save(out)
+    print(f"Annotated preview saved to: {out}")
+
+
 def get_output_shape(
     *,
     gcs_url: str,
     downsample_level: int,
     position: list[float],
     rotation_quat: list[float],
+    max_ring: int | None = None,
 ):
     input_image = open_tensorstore_array(gcs_url, downsample_level=downsample_level)
     bounds = Cuboid(shape=input_image.shape)
     plane = Plane(
         point=[p / 2**downsample_level for p in position], quarternion=rotation_quat
     )
-    max_nspiral, tiles_in_bounds = plane.get_nspiral(bounds)
+    _, tiles_in_bounds = plane.get_nspiral(bounds)
+    if max_ring is not None:
+        tiles_in_bounds = filter_tiles_by_ring(tiles_in_bounds, max_ring, downsample_level)
+    if not tiles_in_bounds:
+        return (0, 0)
     min_tile_idx = np.min(tiles_in_bounds, axis=0).tolist()
     max_tile_idx = np.max(tiles_in_bounds, axis=0).tolist()
 
@@ -151,14 +229,17 @@ def save_image(
     position: list[int],
     rotation_quat: list[float],
     output_path: Path,
-):
+    max_ring: int | None = None,
+) -> tuple[list[tuple[int, int]], list[int], tuple[int, int]]:
     input_image = open_tensorstore_array(gcs_url, downsample_level=downsample_level)
     print(f"Original image shape: {input_image.shape}")
     bounds = Cuboid(shape=input_image.shape)
     plane = Plane(
         point=[p / 2**downsample_level for p in position], quarternion=rotation_quat
     )
-    max_nspiral, tiles_in_bounds = plane.get_nspiral(bounds)
+    _, tiles_in_bounds = plane.get_nspiral(bounds)
+    if max_ring is not None:
+        tiles_in_bounds = filter_tiles_by_ring(tiles_in_bounds, max_ring, downsample_level)
     min_tile_idx = np.min(tiles_in_bounds, axis=0).tolist()
     max_tile_idx = np.max(tiles_in_bounds, axis=0).tolist()
     offset = tuple(-c * mi for c, mi in zip(plane.chunks, min_tile_idx, strict=True))
@@ -237,3 +318,4 @@ def save_image(
     arr = output_image[:].read().result()
     tifffile.imwrite(TIFF_path, arr.T)
     print("TIFF saved to:", TIFF_path)
+    return tiles_in_bounds, min_tile_idx, plane.chunks

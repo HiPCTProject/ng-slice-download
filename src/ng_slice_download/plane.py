@@ -25,8 +25,10 @@ class Plane:
         if self.direction is not None:
             R, _ = Rotation.align_vectors((0, 0, 1), self.direction)
             return R
-        else:
+        elif self.quarternion is not None:
             return Rotation.from_quat(self.quarternion)
+        else:
+            return Rotation.identity()
 
     def plane_coords_to_world(self, x: float, y: float) -> tuple[float, float, float]:
         world_coord = np.vstack((x, y, np.zeros_like(x)))
