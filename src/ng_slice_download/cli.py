@@ -145,19 +145,6 @@ _PANEL_EXTRA_ROTATION: dict[str, tuple[str, float]] = {
     "yz-3d": ("y",  90.0),
 }
 
-# Cross-section panel types we can download (excludes pure-3d panels)
-_CROSS_SECTION_TYPES = frozenset(["xy", "xz", "yz", "xy-3d", "xz-3d", "yz-3d"])
-
-# Human-readable position labels for the standard 4-panel layout
-_PANEL_LABELS = {
-    "xy":    "xy   (top-left)",
-    "xz":    "xz   (bottom-left)",
-    "yz":    "yz   (top-right)",
-    "xy-3d": "xy-3d",
-    "xz-3d": "xz-3d",
-    "yz-3d": "yz-3d",
-}
-
 
 def _panel_quaternion(global_quat: list[float], panel_type: str) -> list[float]:
     """Compose the global crossSectionOrientation with the panel-type's fixed rotation."""
@@ -169,56 +156,27 @@ def _panel_quaternion(global_quat: list[float], panel_type: str) -> list[float]:
     return (Q * Rotation.from_euler(axis, deg, degrees=True)).as_quat().tolist()
 
 
-def _collect_panels(layout) -> list[tuple[str, object]]:
-    """
-    Recursively walk the layout tree and return (panel_type, viewer_or_None)
-    for every downloadable cross-section panel found.
-
-    Handles all layout node types:
-      DataPanelLayout  "4panel"/"4panel-alt" → expands to xy, xz, yz entries
-      DataPanelLayout  single type (xy/xz/yz/…) → one entry, viewer=None
-      LayerGroupViewer → one entry carrying the viewer object for per-panel state
-      StackLayout (row/column) → recurse into children
-    """
-    if layout is None:
-        return []
-
-    if isinstance(layout, DataPanelLayout):
-        ptype = layout.type or ""
-        if ptype in ("4panel", "4panel-alt"):
-            return [("xy", None), ("xz", None), ("yz", None)]
-        if ptype in _CROSS_SECTION_TYPES:
-            return [(ptype, None)]
-        return []  # "3d" or unknown
-
+def _collect_viewers(layout) -> list:
+    """Recursively collect every LayerGroupViewer from the layout tree."""
     if isinstance(layout, LayerGroupViewer):
-        ptype = getattr(layout.layout, "type", "xy") or "xy"
-        if ptype in _CROSS_SECTION_TYPES:
-            return [(ptype, layout)]
-        return []  # pure 3-D viewer
-
+        return [layout]
     if isinstance(layout, StackLayout):
         result = []
         for child in layout.children:
-            result.extend(_collect_panels(child))
+            result.extend(_collect_viewers(child))
         return result
-
     return []
 
 
 def select_panel_state(ng_state) -> tuple[list, list]:
     """
-    Build a choice list from the layout and always prompt the user.
+    List every LayerGroupViewer panel found in the layout, prompt the user to
+    pick one, and return (position, rotation_quat).
 
-    The choice list is assembled as follows:
-      1. Any LayerGroupViewer panels with an independent (unlinked) orientation
-         are listed first, labelled as the current custom view.
-      2. Standard xy / xz / yz options (using the global orientation + fixed
-         rotation) are always appended, so the user can pick any axis even if
-         the layout parser didn't find those panels explicitly.
-
-    This guarantees a prompt and full user control regardless of layout
-    complexity.
+    Orientation resolution per viewer:
+      unlinked → viewer's own stored quaternion
+      linked   → global crossSectionOrientation composed with the panel's
+                 fixed axis rotation (xy=none, xz=-90° x, yz=+90° y)
     """
     global_quat = (
         list(ng_state.crossSectionOrientation)
@@ -227,32 +185,35 @@ def select_panel_state(ng_state) -> tuple[list, list]:
     )
     global_pos = list(ng_state.position)
 
-    # ── Build choice list ────────────────────────────────────────────────────
-    # Each entry: (display_label, panel_type_str, viewer_or_None)
-    choices: list[tuple[str, str, object]] = []
-    seen_types: set[str] = set()
+    viewers = _collect_viewers(ng_state.layout)
 
-    for ptype, viewer in _collect_panels(ng_state.layout):
-        if viewer is not None:
-            ori = viewer.crossSectionOrientation
-            if str(ori.link) != "linked" and ori.value is not None:
-                # Custom/independent orientation — label it clearly
-                label = f"{_PANEL_LABELS.get(ptype, ptype)}  [current view orientation]"
-                choices.append((label, ptype, viewer))
-                seen_types.add(ptype)
-                continue
-        # Standard linked panel — add by type, avoid duplicates
-        if ptype not in seen_types:
-            choices.append((_PANEL_LABELS.get(ptype, ptype), ptype, None))
-            seen_types.add(ptype)
+    current_layout_type = getattr(ng_state.layout, "type", None) or "xy"
 
-    # Always ensure xy / xz / yz are available as standard choices
-    for ptype in ("xy", "xz", "yz"):
-        if ptype not in seen_types:
-            choices.append((_PANEL_LABELS.get(ptype, ptype), ptype, None))
+    if not viewers:
+        # Simple DataPanelLayout URL (e.g. layout="xz") — no per-panel viewer
+        # objects exist, but we can reconstruct any of the three cross-section
+        # views from the global orientation.
+        panel_choices = [
+            ("xy   (top-left)"    + ("  [current]" if current_layout_type == "xy"  else ""), "xy"),
+            ("xz   (bottom-left)" + ("  [current]" if current_layout_type == "xz"  else ""), "xz"),
+            ("yz   (top-right)"   + ("  [current]" if current_layout_type == "yz"  else ""), "yz"),
+        ]
+        labels = [label for label, _ in panel_choices]
+        answers = inquirer.prompt([
+            inquirer.List(
+                "panel",
+                message="Which panel do you want to download?",
+                choices=labels,
+            )
+        ])
+        panel_type = dict(panel_choices)[answers["panel"]]
+        return global_pos, _panel_quaternion(global_quat, panel_type)
 
-    # ── Prompt ───────────────────────────────────────────────────────────────
-    labels = [label for label, _, _ in choices]
+    # Custom layout with LayerGroupViewer panels — list them directly.
+    labels = [
+        f"Panel {i + 1}  —  {getattr(v.layout, 'type', '?')}"
+        for i, v in enumerate(viewers)
+    ]
     answers = inquirer.prompt([
         inquirer.List(
             "panel",
@@ -260,25 +221,22 @@ def select_panel_state(ng_state) -> tuple[list, list]:
             choices=labels,
         )
     ])
-    _, panel_type, viewer = choices[labels.index(answers["panel"])]
+    viewer = viewers[labels.index(answers["panel"])]
 
-    # ── Resolve orientation ──────────────────────────────────────────────────
-    if viewer is not None:
-        ori = viewer.crossSectionOrientation
-        rotation_quat = (
-            list(ori.value)
-            if str(ori.link) != "linked" and ori.value is not None
-            else _panel_quaternion(global_quat, panel_type)
-        )
-        pos = viewer.position
-        position = (
-            list(pos.value)
-            if str(pos.link) != "linked" and pos.value is not None
-            else global_pos
-        )
+    panel_type = getattr(viewer.layout, "type", "xy") or "xy"
+
+    ori = viewer.crossSectionOrientation
+    if str(ori.link) != "linked" and ori.value is not None:
+        rotation_quat = list(ori.value)
     else:
         rotation_quat = _panel_quaternion(global_quat, panel_type)
-        position = global_pos
+
+    pos = viewer.position
+    position = (
+        list(pos.value)
+        if str(pos.link) != "linked" and pos.value is not None
+        else global_pos
+    )
 
     return position, rotation_quat
 
