@@ -28,8 +28,8 @@ def open_tensorstore_array(
 def create_local_tensorstore_array(
     *,
     path: str,
-    shape: tuple[int, int],
-    tile_shape: tuple[int, int],
+    shape: tuple[int, ...],
+    tile_shape: tuple[int, ...],
     dtype: str,
     fill_value: float,
 ) -> ts.TensorStore:

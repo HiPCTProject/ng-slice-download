@@ -30,8 +30,8 @@ class Plane:
         else:
             return Rotation.identity()
 
-    def plane_coords_to_world(self, x: float, y: float) -> tuple[float, float, float]:
-        world_coord = np.vstack((x, y, np.zeros_like(x)))
+    def plane_coords_to_world(self, x: float, y: float, z: float = 0.0) -> tuple[float, float, float]:
+        world_coord = np.vstack((x, y, np.full_like(x, z, dtype=float)))
         # Rotate about common point
         world_coord = self.rotation.apply(world_coord.T)
         # Translate to common point
